@@ -100,13 +100,27 @@ box2 与 box1 的墨迹包围盒都是 `(2, 0, 298, 300)`、覆盖像素都是 3
 
 ```
 node tests/plugin.test.mjs   ->  22 passed, 0 failed
-tests/selfcheck.sh           ->  50 passed, 0 failed, 2 skipped
+tests/selfcheck.sh           ->  52 passed, 0 failed, 0 skipped
 ```
 
-自检里的 2 个 skip 是"本机尚未打补丁"时才出现的状态检查（安装前跑的那次）；现在这两项都已是
-PASS 状态。`selfcheck.sh` 会在一次性 `$HOME` 里真的装一遍启动器（菜单项、8 个尺寸图标、
+三条夹具路径都跑过 22/22：
+
+| 夹具 | 怎么触发 | 结果 |
+| --- | --- | --- |
+| 真实且**尚未打补丁**的前端（保真度最高） | `DSH_UBUNTU_ICON_TEST_DIST=/tmp/stock-fe/package/dist` | 22/22 |
+| 合成的最小 bundle（自带、与机器状态无关） | 自动回退，或 `DSH_UBUNTU_ICON_TEST_SYNTHETIC=1` | 22/22 |
+| 本机已被打补丁的前端 | 自动检测后**拒绝使用**，回退到合成夹具 | 22/22 |
+
+第三种情况是一次真实的回归：安装插件之前这套测试是 22/22，安装之后变成 17/22
+（`expected backups, found 0`）。原因不是插件坏了，而是**测试夹具不密闭**——它把"机器上正在跑的
+那份前端"复制过来当夹具，安装之后复制到的已经是蓝结了，于是修复正确地什么都不做、不写备份，
+断言就落空。修法是给夹具加"是否仍是原版"的判定（favicon 不含 `#1E6FEB`、bundle 不含结形路径），
+不满足就换成自带的合成夹具，并在跑之前显式断言夹具是原版——不然同一个测试的结果会取决于
+这台机器上有没有装过插件。
+
+`selfcheck.sh` 会在一次性 `$HOME` 里真的装一遍启动器（菜单项、8 个尺寸图标、
 `desktop-file-validate`、卸载清理），跑完即删；对真实 DSH 安装只读，唯一的例外是显式检查
-favicon 是否已变成结形。
+favicon 是否已变成结形（安装后由 skip 变成 PASS，所以现在是 0 skipped）。
 
 ## 6. 桌面启动器（另一半）
 

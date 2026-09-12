@@ -41,6 +41,7 @@ export{FishLogo:uC,BrandWordmark:fC,FISH_LOGO_PATH:B4,FISH_LOGO_VIEWBOX:Ir};`;
 /** Prefer a real installed frontend (best fidelity), else the synthetic fixture. */
 async function findRealDist() {
   if (process.env.DSH_UBUNTU_ICON_TEST_DIST) return process.env.DSH_UBUNTU_ICON_TEST_DIST;
+  if (process.env.DSH_UBUNTU_ICON_TEST_SYNTHETIC) return null;
   const roots = [join(homedir(), ".npm", "_npx"), "/usr/lib/node_modules", "/usr/local/lib/node_modules"];
   for (const root of roots) {
     let entries = [];
@@ -57,6 +58,30 @@ async function findRealDist() {
   return null;
 }
 
+/**
+ * Is this frontend still stock? Once the plugin has run on this machine the live
+ * files are already blue knots, and repairing those is correctly a no-op — no
+ * backups, nothing to assert. Reusing such a dist would make the suite depend on
+ * whether the plugin happens to be installed, so it is rejected in favour of the
+ * synthetic fixture (which is stock by construction, hence deterministic).
+ */
+async function isPristine(dist, assets) {
+  try {
+    const favicon = await readFile(join(dist, "favicon.svg"), "utf8");
+    if (favicon.includes(KNOT_MARKER)) return false;
+    for (const file of assets.filter((f) => /^index-.+\.js$/.test(f))) {
+      if ((await readFile(join(dist, "assets", file), "utf8")).includes(KNOT_PATH_HEAD)) return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Signatures the patch itself leaves behind — i.e. "this file is already branded". */
+const KNOT_MARKER = "#1E6FEB";
+const KNOT_PATH_HEAD = "M22.2819 9.8211";
+
 const tmp = await mkdtemp(join(tmpdir(), "ubutu-icon-test-"));
 const home = join(tmp, "home");
 const pkgDir = join(tmp, "node_modules", "@deepseek-ai", "dsh-web-frontend");
@@ -64,11 +89,15 @@ const dist = join(pkgDir, "dist");
 await mkdir(join(dist, "assets"), { recursive: true });
 await mkdir(home, { recursive: true });
 
-const real = await findRealDist();
+const candidate = await findRealDist();
+const realAssets = candidate ? await readdir(join(candidate, "assets")) : [];
+const real = candidate && (await isPristine(candidate, realAssets)) ? candidate : null;
+if (candidate && !real) {
+  console.log(`== fixture: ${candidate} is already branded (the plugin has run here) -> using the synthetic fixture`);
+}
 let bundleName = "index-TEST0000.js";
 if (real) {
-  const assets = await readdir(join(real, "assets"));
-  const indexJs = assets.filter((f) => /^index-.+\.js$/.test(f));
+  const indexJs = realAssets.filter((f) => /^index-.+\.js$/.test(f));
   await cp(join(real, "favicon.svg"), join(dist, "favicon.svg"));
   if (existsSync(join(real, "index.html"))) await cp(join(real, "index.html"), join(dist, "index.html"));
   if (indexJs.length) {
@@ -80,7 +109,7 @@ if (real) {
   await writeFile(join(dist, "favicon.svg"), '<svg xmlns="http://www.w3.org/2000/svg"><path d="M0 0h10v10H0z" fill="#111"/></svg>\n');
   await writeFile(join(dist, "index.html"), "<!doctype html><title>DeepSeek Harness</title>\n");
   await writeFile(join(dist, "assets", bundleName), SYNTHETIC_BUNDLE);
-  console.log("== fixture: synthetic bundle (no installed frontend found)");
+  console.log("== fixture: synthetic bundle (hermetic, stock by construction)");
 }
 await writeFile(join(pkgDir, "package.json"), JSON.stringify({ name: "@deepseek-ai/dsh-web-frontend", version: "9.9.9-test" }, null, 2));
 
@@ -88,6 +117,14 @@ const bundlePath = join(dist, "assets", bundleName);
 const faviconPath = join(dist, "favicon.svg");
 const faviconBefore = sha256(await readFile(faviconPath));
 const bundleBefore = sha256(await readFile(bundlePath));
+
+// The suite asserts that the first repair CREATES backups, which only holds from
+// a stock starting point. Fail loudly here rather than three assertions later.
+const fixtureBundleText = await readFile(bundlePath, "utf8");
+if (fixtureBundleText.includes(KNOT_PATH_HEAD) || (await readFile(faviconPath, "utf8")).includes(KNOT_MARKER)) {
+  console.log("  [FAIL] fixture is already branded; refusing to run (see isPristine)");
+  process.exit(1);
+}
 
 process.env.DSH_HOME = home;
 process.env.DSH_UBUNTU_ICON_ROOT = pkgDir;
