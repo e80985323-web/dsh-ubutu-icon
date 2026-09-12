@@ -1,0 +1,48 @@
+{
+  "name": "dsh-ubutu-icon",
+  "version": "1.0.0",
+  "description": "Keeps the blue ChatGPT-knot icon branding on the DSH Web UI under Ubuntu/Linux: re-applies the favicon, the in-app FishLogo/BrandWordmark and the skill badge after every harness update.",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib/index.js",
+    "assets",
+    "desktop",
+    "tools",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "scripts": {
+    "test": "node tests/plugin.test.mjs",
+    "check": "node --check lib/index.js"
+  },
+  "license": "MIT",
+  "keywords": [
+    "deepseek-harness",
+    "dsh",
+    "plugin",
+    "dsh-plugin",
+    "icon",
+    "chatgpt",
+    "openai",
+    "ubuntu",
+    "linux",
+    "appimage"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/e80985323-web/dsh-ubutu-icon.git"
+  },
+  "homepage": "https://github.com/e80985323-web/dsh-ubutu-icon#readme"
+}

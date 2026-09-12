@@ -1,0 +1,4 @@
+# dsh-ubutu-icon: keep the blue ChatGPT-knot branding across DSH updates (Ubuntu/Linux).
+- insert:
+    - id: ubuntu-icon
+      name: dsh-ubutu-icon
